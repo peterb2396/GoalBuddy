@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Goal Tracker",
-    "slug": "goal-tracker-app",
+    "name": "Goal Buddy",
+    "slug": "goal-buddy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,14 +16,17 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.goaltracker"
+      "bundleIdentifier": "com.builtbypeter.goal-buddy",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5F1E8"
       },
-      "package": "com.yourcompany.goaltracker",
+      "package": "com.builtbypeter.goal-buddy",
       "permissions": [
         "NOTIFICATIONS"
       ]
@@ -42,7 +45,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "8da84854-bbfc-4871-bdb9-c763fb05d8ba"
       }
     }
   }
