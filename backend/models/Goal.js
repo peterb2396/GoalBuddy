@@ -36,9 +36,9 @@ const SubItemSchema = new mongoose.Schema({
 
 const GoalSchema = new mongoose.Schema({
   userId: {
-    type: String,
-    required: true,
-    default: 'default-user'
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   title: {
     type: String,

@@ -7,12 +7,14 @@ import {
   RefreshControl,
   SafeAreaView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
 import { goalAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import GoalCard from '../components/GoalCard';
 import { theme } from '../theme';
 
@@ -21,6 +23,27 @@ const HomeScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const confettiRef = useRef(null);
+  const { logout, user } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          onPress: async () => {
+            await logout();
+          },
+          style: 'destructive',
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     loadGoals();
@@ -142,18 +165,27 @@ const HomeScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
       
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>My Goals</Text>
           <Text style={styles.headerSubtitle}>
-            {goals.length} {goals.length === 1 ? 'goal' : 'goals'} • Keep pushing forward!
+            {user?.name && `Hi ${user.name} • `}
+            {goals.length} {goals.length === 1 ? 'goal' : 'goals'}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('CreateGoal')}
-        >
-          <Ionicons name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('CreateGoal')}
+          >
+            <Ionicons name="add" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -211,6 +243,14 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.background,
   },
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   headerTitle: {
     fontSize: theme.fontSize.xxl,
     fontWeight: theme.fontWeight.bold,
@@ -220,6 +260,15 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.sm,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
+  },
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    ...theme.shadows.sm,
   },
   addButton: {
     width: 56,

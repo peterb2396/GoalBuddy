@@ -1,7 +1,8 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Update this to your backend URL
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://10.215.236.11:3000/api';
 
 // For development, use your local IP address instead of localhost
 // Example: const API_URL = 'http://192.168.1.100:3000/api';
@@ -14,6 +15,53 @@ const api = axios.create({
   }
 });
 
+// Add auth token to requests
+api.interceptors.request.use(
+  async (config) => {
+    const token = await AsyncStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid - clear auth data
+      await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('user');
+      // You might want to emit an event here to trigger logout in your app
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Authentication API
+export const authAPI = {
+  register: async (name, email, password) => {
+    const response = await api.post('/auth/register', { name, email, password });
+    return response.data;
+  },
+
+  login: async (email, password) => {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
+  },
+
+  getCurrentUser: async () => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  }
+};
+
+// Goals API
 export const goalAPI = {
   // Get all goals
   getAllGoals: async () => {

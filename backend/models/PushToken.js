@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 
 const PushTokenSchema = new mongoose.Schema({
   userId: {
-    type: String,
-    required: true,
-    default: 'default-user'
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   token: {
     type: String,
