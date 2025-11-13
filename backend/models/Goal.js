@@ -52,7 +52,7 @@ const GoalSchema = new mongoose.Schema({
   // For continuous goals
   resetFrequency: {
     type: String,
-    enum: ['daily', 'weekly', 'monthly'],
+    enum: ['daily', 'weekly', 'monthly', null],
     default: null
   },
   lastResetDate: {

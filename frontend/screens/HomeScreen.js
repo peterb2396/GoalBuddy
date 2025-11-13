@@ -1,70 +1,96 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
-  StatusBar,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { goalsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { theme } from '../theme';
+import GoalCard from '../components/GoalCard';
+import * as Haptics from 'expo-haptics';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import * as Haptics from 'expo-haptics';
-import { goalAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import GoalCard from '../components/GoalCard';
-import { theme } from '../theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const HomeScreen = ({ navigation }) => {
+export default function HomeScreen({ navigation }) {
   const [goals, setGoals] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const { user, logout } = useAuth();
   const confettiRef = useRef(null);
-  const { logout, user } = useAuth();
 
+  useFocusEffect(
+    useCallback(() => {
+      loadGoals();
+    }, [])
+  );
+
+  const loadGoals = async () => {
+    try {
+      const data = await goalsAPI.getGoals();
+      setGoals(data);
+    } catch (error) {
+      console.error('Error loading goals:', error);
+      Alert.alert('Error', 'Failed to load goals');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+ 
   const handleLogout = () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            await logout();
-          },
-          style: 'destructive',
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: logout }
       ]
     );
   };
 
-  useEffect(() => {
-    loadGoals();
-  }, []);
+  const handleDeleteGoal = async (goalId) => {
+    Alert.alert(
+      'Delete Goal',
+      'Are you sure you want to delete this goal?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await goalsAPI.deleteGoal(goalId);
+              loadGoals();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete goal');
+            }
+          }
+        }
+      ]
+    );
+  };
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      loadGoals();
-    });
-    return unsubscribe;
-  }, [navigation]);
+  const handleReorderSubItems = async (goalId, reorderedSubItems) => {
+    const goalToUpdate = goals.find(g => g._id === goalId);
+    if (!goalToUpdate) return;
 
-  const loadGoals = async () => {
+    const updatedGoal = { ...goalToUpdate, subItems: reorderedSubItems };
+    setGoals(goals.map(g => g._id === goalId ? updatedGoal : g));
+
     try {
-      const data = await goalAPI.getAllGoals();
-      setGoals(data);
+      await goalsAPI.updateGoal(goalId, { subItems: reorderedSubItems });
     } catch (error) {
-      console.error('Error loading goals:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      console.error('Error reordering sub-items:', error);
+      loadGoals();
     }
   };
 
@@ -88,34 +114,29 @@ const HomeScreen = ({ navigation }) => {
     
     try {
       const orderedIds = reorderedGoals.map(g => g._id);
-      await goalAPI.reorderGoals(orderedIds);
+      await goalsAPI.reorderGoals(orderedIds);
     } catch (error) {
       console.error('Error reordering goals:', error);
       loadGoals();
     }
   };
 
+
   const handleUpdateSubItem = async (goalId, updatedSubItem) => {
     try {
-      const updatedGoal = await goalAPI.updateSubItem(goalId, updatedSubItem.id, updatedSubItem);
+      // make a new subItems array with the updated sub-item, and update the goal with it
+      const goalToUpdate = goals.find(g => g._id === goalId);
+      if (!goalToUpdate) return;
+      const updatedSubItems = goalToUpdate.subItems.map(si =>
+        si.id === updatedSubItem.id ? updatedSubItem : si
+      );
+      const updatedGoal = { ...goalToUpdate, subItems: updatedSubItems };
+      await goalsAPI.updateGoal(goalId, { subItems: updatedSubItems });
+
+      
       setGoals(goals.map(g => g._id === goalId ? updatedGoal : g));
     } catch (error) {
       console.error('Error updating sub-item:', error);
-    }
-  };
-
-  const handleReorderSubItems = async (goalId, reorderedSubItems) => {
-    const goalToUpdate = goals.find(g => g._id === goalId);
-    if (!goalToUpdate) return;
-
-    const updatedGoal = { ...goalToUpdate, subItems: reorderedSubItems };
-    setGoals(goals.map(g => g._id === goalId ? updatedGoal : g));
-
-    try {
-      await goalAPI.updateGoal(goalId, { subItems: reorderedSubItems });
-    } catch (error) {
-      console.error('Error reordering sub-items:', error);
-      loadGoals();
     }
   };
 
@@ -141,6 +162,8 @@ const HomeScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const sortedGoals = goals.sort((a, b) => a.order - b.order);
+
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="trophy-outline" size={80} color={theme.colors.textLight} />
@@ -158,32 +181,24 @@ const HomeScreen = ({ navigation }) => {
     </View>
   );
 
-  const sortedGoals = goals.sort((a, b) => a.order - b.order);
+
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-      
+    <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>My Goals</Text>
-          <Text style={styles.headerSubtitle}>
-            {user?.name && `Hi ${user.name} • `}
-            {goals.length} {goals.length === 1 ? 'goal' : 'goals'}
-          </Text>
+        <View>
+          <Text style={styles.greeting}>Hello, {user?.name.substring(0, user?.name.indexOf(" "))}!</Text>
+          <Text style={styles.subtitle}>Track your goals</Text>
         </View>
-        <View style={styles.headerRight}>
+        <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
+            onPress={() => navigation.navigate('Friends')}
+            style={styles.iconButton}
           >
-            <Ionicons name="log-out-outline" size={24} color={theme.colors.text} />
+            <Ionicons name="people-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => navigation.navigate('CreateGoal')}
-          >
-            <Ionicons name="add" size={28} color="#FFFFFF" />
+          <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
+            <Ionicons name="log-out-outline" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -193,6 +208,7 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.loadingText}>Loading goals...</Text>
         </View>
       ) : (
+        <View>
         <DraggableFlatList
           data={sortedGoals}
           onDragEnd={handleReorderGoals}
@@ -209,12 +225,11 @@ const HomeScreen = ({ navigation }) => {
             />
           }
         />
-      )}
 
-      <ConfettiCannon
+<ConfettiCannon
         ref={confettiRef}
         count={150}
-        origin={{ x: 0, y: 0 }}
+        origin={{ x: -20, y: 0 }}
         fadeOut={true}
         autoStart={false}
         colors={[
@@ -226,65 +241,38 @@ const HomeScreen = ({ navigation }) => {
           theme.colors.success
         ]}
       />
-    </SafeAreaView>
+
+<SafeAreaView />
+
+        </View>
+      )}
+
+      
+      
+
+      
+
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('CreateGoal')}
+      >
+        <Ionicons name="add" size={32} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  headerTitle: {
-    fontSize: theme.fontSize.xxl,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.text,
-  },
-  headerSubtitle: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.xs,
-  },
-  logoutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    ...theme.shadows.sm,
-  },
-  addButton: {
-    width: 56,
-    height: 56,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...theme.shadows.lg,
-  },
   listContent: {
     padding: theme.spacing.lg,
     paddingTop: theme.spacing.sm,
   },
   dragIndicator: {
-    alignItems: 'center',
     marginBottom: theme.spacing.xs,
   },
   dragHandle: {
@@ -294,49 +282,160 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     transform: [{ scale: 1.02 }],
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  list: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  goalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  goalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  goalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.text,
+    flex: 1,
+  },
+  goalDescription: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: theme.colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.primary,
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.text,
+    minWidth: 40,
+    textAlign: 'right',
+  },
+  goalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryBadge: {
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.colors.primary,
+  },
+  deadlineContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  deadlineText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: theme.spacing.xxl * 2,
-  },
-  emptyTitle: {
-    fontSize: theme.fontSize.xl,
-    fontWeight: theme.fontWeight.bold,
-    color: theme.colors.text,
-    marginTop: theme.spacing.lg,
+    paddingVertical: 60,
   },
   emptyText: {
-    fontSize: theme.fontSize.md,
+    fontSize: 20,
+    fontWeight: '600',
+    color: theme.colors.text,
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.xl,
+    marginTop: 8,
   },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    gap: theme.spacing.sm,
-    ...theme.shadows.md,
-  },
-  emptyButtonText: {
-    fontSize: theme.fontSize.md,
-    fontWeight: theme.fontWeight.semibold,
-    color: '#FFFFFF',
-  },
-  loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: theme.fontSize.md,
-    color: theme.colors.textSecondary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
-
-export default HomeScreen;

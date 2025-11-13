@@ -12,8 +12,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import uuid from 'react-native-uuid';
-import { goalAPI } from '../services/api';
+import { goalsAPI } from '../services/api.js';
 import { theme, accentColors } from '../theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import mongoose from 'mongoose';
+
 
 const CreateGoalScreen = ({ navigation }) => {
   const [title, setTitle] = useState('');
@@ -29,6 +32,17 @@ const CreateGoalScreen = ({ navigation }) => {
   const [newSubItemTitle, setNewSubItemTitle] = useState('');
   const [newSubItemType, setNewSubItemType] = useState('checkbox');
   const [newSubItemTarget, setNewSubItemTarget] = useState('100');
+  const [user, setUser] = useState(null);
+
+  
+  
+
+  const loadStoredAuth = async () => {
+    setUser(await AsyncStorage.getItem('user'))
+  }
+  loadStoredAuth();
+
+  
 
   const handleAddSubItem = () => {
     if (!newSubItemTitle.trim()) return;
@@ -53,23 +67,27 @@ const CreateGoalScreen = ({ navigation }) => {
     setSubItems(subItems.filter(item => item.id !== id));
   };
 
+
   const handleSave = async () => {
     if (!title.trim()) {
       alert('Please enter a goal title');
       return;
     }
 
+
     try {
       const goalData = {
         title: title.trim(),
         type,
-        resetFrequency: type === 'continuous' ? resetFrequency : null,
+        resetFrequency: type === 'continuous' ? resetFrequency : 'daily', // : null
         color,
         priority,
         subItems,
+        order: 0, // New goals are added at the top
+        userId: new mongoose.Types.ObjectId(user.id)
       };
 
-      await goalAPI.createGoal(goalData);
+      await goalsAPI.createGoal(goalData);
       navigation.goBack();
     } catch (error) {
       console.error('Error creating goal:', error);

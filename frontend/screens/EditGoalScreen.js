@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import uuid from 'react-native-uuid';
-import { goalAPI } from '../services/api';
+import { goalsAPI } from '../services/api';
 import { theme, accentColors } from '../theme';
 
 const EditGoalScreen = ({ route, navigation }) => {
@@ -71,7 +71,7 @@ const EditGoalScreen = ({ route, navigation }) => {
         subItems,
       };
 
-      await goalAPI.updateGoal(goal._id, goalData);
+      await goalsAPI.updateGoal(goal._id, goalData);
       navigation.goBack();
     } catch (error) {
       console.error('Error updating goal:', error);
@@ -90,7 +90,7 @@ const EditGoalScreen = ({ route, navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await goalAPI.deleteGoal(goal._id);
+              await goalsAPI.deleteGoal(goal._id);
               navigation.goBack();
             } catch (error) {
               console.error('Error deleting goal:', error);

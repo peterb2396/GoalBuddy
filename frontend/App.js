@@ -6,14 +6,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { notificationService } from './services/notifications';
-
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
 import CreateGoalScreen from './screens/CreateGoalScreen';
 import EditGoalScreen from './screens/EditGoalScreen';
-
+import FriendsScreen from './screens/FriendsScreen';
 import { theme } from './theme';
 
 const Stack = createStackNavigator();
@@ -45,6 +44,7 @@ const MainStack = () => {
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="CreateGoal" component={CreateGoalScreen} />
       <Stack.Screen name="EditGoal" component={EditGoalScreen} />
+      <Stack.Screen name="Friends" component={FriendsScreen} />
     </Stack.Navigator>
   );
 };
@@ -55,11 +55,9 @@ const Navigation = () => {
   const notificationListener = useRef();
   const responseListener = useRef();
 
-  console.log("Auth:", isAuthenticated, loading)
-
   useEffect(() => {
     if (isAuthenticated) {
-      // Only register for push notifications when authenticated
+      // Register for push notifications when authenticated
       notificationService.registerForPushNotifications();
 
       // Add notification listeners

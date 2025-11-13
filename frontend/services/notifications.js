@@ -1,9 +1,9 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { goalAPI } from './api';
+import { authAPI } from './api';
 
-// Configure notification handler
+// Configure notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -12,9 +12,8 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const notificationService = {
-  // Request permissions and get push token
-  registerForPushNotifications: async () => {
+class NotificationService {
+  async registerForPushNotifications() {
     let token;
 
     if (Platform.OS === 'android') {
@@ -22,7 +21,7 @@ export const notificationService = {
         name: 'default',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#E8B4B8',
+        lightColor: '#FF231F7C',
       });
     }
 
@@ -37,48 +36,43 @@ export const notificationService = {
       
       if (finalStatus !== 'granted') {
         console.log('Failed to get push token for push notification!');
-        return null;
+        return;
       }
       
       token = (await Notifications.getExpoPushTokenAsync()).data;
       console.log('Push token:', token);
-      
-      // Register token with backend
+
+      // Send token to backend
       try {
-        await goalAPI.registerPushToken(token);
+        await authAPI.updatePushToken(token);
       } catch (error) {
-        console.error('Error registering push token:', error);
+        console.error('Error updating push token:', error);
       }
     } else {
       console.log('Must use physical device for Push Notifications');
     }
 
     return token;
-  },
+  }
 
-  // Schedule a local notification
-  scheduleLocalNotification: async (title, body, trigger) => {
+  addNotificationListener(callback) {
+    return Notifications.addNotificationReceivedListener(callback);
+  }
+
+  addResponseListener(callback) {
+    return Notifications.addNotificationResponseReceivedListener(callback);
+  }
+
+  async scheduleLocalNotification(title, body, trigger = null) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
         body,
-        sound: 'default',
+        sound: true,
       },
-      trigger,
+      trigger: trigger || { seconds: 1 },
     });
-  },
-
-  // Cancel all scheduled notifications
-  cancelAllNotifications: async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-  },
-
-  // Add notification listeners
-  addNotificationListener: (callback) => {
-    return Notifications.addNotificationReceivedListener(callback);
-  },
-
-  addResponseListener: (callback) => {
-    return Notifications.addNotificationResponseReceivedListener(callback);
   }
-};
+}
+
+export const notificationService = new NotificationService();
