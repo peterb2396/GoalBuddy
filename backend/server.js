@@ -14,6 +14,10 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/goals', require('./routes/goals'));
 app.use('/api/friends', require('./routes/friends'));
 
+app.get('/', (req,res) => {
+  res.send("Goal Buddy Backend is running");
+})
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/goals-app', {
   useNewUrlParser: true,
