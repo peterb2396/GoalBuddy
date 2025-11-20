@@ -76,6 +76,12 @@ const GoalSchema = new mongoose.Schema({
     type: String,
     default: '#E8B4B8'
   },
+  // Group goals - array of user IDs this goal is shared with
+  sharedWith: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: []
+  }],
   createdAt: {
     type: Date,
     default: Date.now

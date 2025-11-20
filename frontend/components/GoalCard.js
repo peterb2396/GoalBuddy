@@ -80,6 +80,14 @@ const GoalCard = ({ goal, onPress, onUpdateSubItem, onReorderSubItems, onShowCon
                   Resets {goal.resetFrequency}
                 </Text>
               )}
+              {goal.sharedWith && goal.sharedWith.length > 0 && (
+                <View style={styles.sharedBadge}>
+                  <Ionicons name="people" size={12} color={theme.colors.primary} />
+                  <Text style={styles.sharedText}>
+                    {goal.sharedWith.length + 1}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -204,6 +212,20 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.xs,
     color: theme.colors.textSecondary,
     fontStyle: 'italic',
+  },
+  sharedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+  },
+  sharedText: {
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.primary,
   },
   headerRight: {
     alignItems: 'flex-end',

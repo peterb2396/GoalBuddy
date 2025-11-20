@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-const API_URL = 'http://192.168.4.22:3000/api'; // Replace with your server IP
+const API_URL = 'https://goalbuddy-95vi.onrender.com/api';//'http://192.168.4.22:3000/api'; // Replace with your server IP
 
 const api = axios.create({
   baseURL: API_URL,
@@ -139,6 +139,18 @@ export const goalsAPI = {
 
   reorderGoals: async (orderedIds) => {
     const response = await api.post('/goals/reorder', { orderedIds });
+    return response.data;
+  },
+
+  // Share goal with a friend
+  shareGoalWithFriend: async (goalId, friendId) => {
+    const response = await api.post(`/goals/${goalId}/share`, { friendId });
+    return response.data;
+  },
+
+  // Remove friend from shared goal
+  removeFromSharedGoal: async (goalId, friendId) => {
+    const response = await api.delete(`/goals/${goalId}/share/${friendId}`);
     return response.data;
   }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,17 @@ import {
   SafeAreaView,
   Modal,
   Alert,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import uuid from 'react-native-uuid';
-import { goalsAPI } from '../services/api';
+import { goalsAPI, friendsAPI } from '../services/api';
 import { theme, accentColors } from '../theme';
+import { useAuth } from '../context/AuthContext';
 
 const EditGoalScreen = ({ route, navigation }) => {
   const { goal } = route.params;
+  const { user } = useAuth();
 
   const [title, setTitle] = useState(goal.title);
   const [type, setType] = useState(goal.type);
@@ -26,11 +29,30 @@ const EditGoalScreen = ({ route, navigation }) => {
   const [subItems, setSubItems] = useState(goal.subItems);
   const [showAddSubItemModal, setShowAddSubItemModal] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [sharedWith, setSharedWith] = useState(goal.sharedWith || []);
 
   // New sub-item state
   const [newSubItemTitle, setNewSubItemTitle] = useState('');
   const [newSubItemType, setNewSubItemType] = useState('checkbox');
   const [newSubItemTarget, setNewSubItemTarget] = useState('100');
+
+  // Check if current user is the owner
+  const isOwner = goal.userId._id === user._id || goal.userId === user._id;
+
+  useEffect(() => {
+    loadFriends();
+  }, []);
+
+  const loadFriends = async () => {
+    try {
+      const friendsData = await friendsAPI.getFriends();
+      setFriends(friendsData);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
 
   const handleAddSubItem = () => {
     if (!newSubItemTitle.trim()) return;
@@ -53,6 +75,40 @@ const EditGoalScreen = ({ route, navigation }) => {
 
   const handleRemoveSubItem = (id) => {
     setSubItems(subItems.filter(item => item.id !== id));
+  };
+
+  const handleShareWithFriend = async (friendId) => {
+    try {
+      const updatedGoal = await goalsAPI.shareGoalWithFriend(goal._id, friendId);
+      setSharedWith(updatedGoal.sharedWith || []);
+      Alert.alert('Success', 'Friend added to goal!');
+    } catch (error) {
+      console.error('Error sharing goal:', error);
+      Alert.alert('Error', 'Failed to share goal. Please try again.');
+    }
+  };
+
+  const handleRemoveFromShared = async (friendId) => {
+    Alert.alert(
+      'Remove Friend',
+      'Remove this friend from the goal?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedGoal = await goalsAPI.removeFromSharedGoal(goal._id, friendId);
+              setSharedWith(updatedGoal.sharedWith || []);
+            } catch (error) {
+              console.error('Error removing friend:', error);
+              Alert.alert('Error', 'Failed to remove friend. Please try again.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleSave = async () => {
@@ -216,6 +272,73 @@ const EditGoalScreen = ({ route, navigation }) => {
     </Modal>
   );
 
+  const renderShareModal = () => (
+    <Modal
+      visible={showShareModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowShareModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Share with Friends</Text>
+            <TouchableOpacity onPress={() => setShowShareModal(false)}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.friendsList}>
+            {friends.length === 0 ? (
+              <View style={styles.emptyFriends}>
+                <Ionicons name="people-outline" size={48} color={theme.colors.textLight} />
+                <Text style={styles.emptyFriendsText}>No friends yet</Text>
+                <Text style={styles.emptyFriendsSubtext}>Add friends to share goals with them</Text>
+              </View>
+            ) : (
+              friends.map((friend) => {
+                const isShared = sharedWith.some(sw => sw._id === friend._id || sw === friend._id);
+                return (
+                  <TouchableOpacity
+                    key={friend._id}
+                    style={styles.friendItem}
+                    onPress={() => {
+                      if (isShared) {
+                        handleRemoveFromShared(friend._id);
+                      } else {
+                        handleShareWithFriend(friend._id);
+                      }
+                    }}
+                  >
+                    <View style={styles.friendInfo}>
+                      <View style={[styles.friendAvatar, { backgroundColor: color }]}>
+                        <Text style={styles.friendAvatarText}>
+                          {friend.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={styles.friendName}>{friend.name}</Text>
+                        <Text style={styles.friendEmail}>{friend.email}</Text>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.friendCheckbox,
+                      isShared && { backgroundColor: color, borderColor: color }
+                    ]}>
+                      {isShared && (
+                        <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -370,6 +493,62 @@ const EditGoalScreen = ({ route, navigation }) => {
           ))}
         </View>
 
+        {isOwner && (
+          <View style={styles.section}>
+            <View style={styles.shareHeader}>
+              <Text style={styles.label}>Shared With ({sharedWith.length})</Text>
+              <TouchableOpacity
+                style={[styles.shareButton, { backgroundColor: color }]}
+                onPress={() => setShowShareModal(true)}
+              >
+                <Ionicons name="person-add" size={20} color="#FFFFFF" />
+                <Text style={styles.shareButtonText}>Add Friend</Text>
+              </TouchableOpacity>
+            </View>
+
+            {sharedWith.length > 0 && (
+              <View style={styles.sharedUsersList}>
+                {sharedWith.map((sharedUser) => (
+                  <View key={sharedUser._id} style={styles.sharedUserCard}>
+                    <View style={styles.sharedUserInfo}>
+                      <View style={[styles.sharedUserAvatar, { backgroundColor: color }]}>
+                        <Text style={styles.sharedUserAvatarText}>
+                          {sharedUser.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={styles.sharedUserName}>{sharedUser.name}</Text>
+                        <Text style={styles.sharedUserEmail}>{sharedUser.email}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity onPress={() => handleRemoveFromShared(sharedUser._id)}>
+                      <Ionicons name="close-circle" size={24} color={theme.colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {sharedWith.length === 0 && (
+              <View style={styles.noSharedUsers}>
+                <Ionicons name="people-outline" size={32} color={theme.colors.textLight} />
+                <Text style={styles.noSharedUsersText}>Not shared with anyone yet</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {!isOwner && (
+          <View style={styles.section}>
+            <View style={styles.sharedInfoCard}>
+              <Ionicons name="information-circle" size={24} color={color} />
+              <Text style={styles.sharedInfoText}>
+                This goal is shared with you by {goal.userId.name}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
           <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
           <Text style={styles.deleteButtonText}>Delete Goal</Text>
@@ -378,6 +557,7 @@ const EditGoalScreen = ({ route, navigation }) => {
 
       {renderAddSubItemModal()}
       {renderColorPicker()}
+      {renderShareModal()}
     </SafeAreaView>
   );
 };
@@ -662,6 +842,155 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.md,
+  },
+  shareHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+  },
+  shareButtonText: {
+    color: '#FFFFFF',
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  sharedUsersList: {
+    gap: theme.spacing.sm,
+  },
+  sharedUserCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  sharedUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  sharedUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sharedUserAvatarText: {
+    color: '#FFFFFF',
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.bold,
+  },
+  sharedUserName: {
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  sharedUserEmail: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.textSecondary,
+  },
+  noSharedUsers: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  noSharedUsersText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.sm,
+  },
+  sharedInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  sharedInfoText: {
+    flex: 1,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.text,
+    lineHeight: 20,
+  },
+  friendsList: {
+    maxHeight: 400,
+  },
+  emptyFriends: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+  emptyFriendsText: {
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.md,
+  },
+  emptyFriendsSubtext: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textLight,
+    marginTop: theme.spacing.xs,
+  },
+  friendItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  friendInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendAvatarText: {
+    color: '#FFFFFF',
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.bold,
+  },
+  friendName: {
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.text,
+  },
+  friendEmail: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.textSecondary,
+  },
+  friendCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
