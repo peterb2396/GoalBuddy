@@ -102,6 +102,11 @@ export const authAPI = {
   getMe: async () => {
     const response = await api.get('/auth/me');
     return response.data;
+  },
+
+  deleteAccount: async () => {
+    const response = await api.delete('/auth/account');
+    return response.data;
   }
 };
 

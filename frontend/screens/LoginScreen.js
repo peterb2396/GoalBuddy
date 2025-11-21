@@ -48,7 +48,7 @@ export default function LoginScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>GoalBuddy</Text>
+          <Text style={styles.title}>Goal Circle</Text>
           <Text style={styles.subtitle}>Track your goals, achieve your dreams</Text>
         </View>
 

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Goal Buddy",
-    "slug": "goal-buddy",
+    "name": "Goal Circle",
+    "slug": "goal-circle",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

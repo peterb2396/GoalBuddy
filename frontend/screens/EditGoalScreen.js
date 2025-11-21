@@ -538,7 +538,7 @@ const EditGoalScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        {!isOwner && (
+        {false && !isOwner && (
           <View style={styles.section}>
             <View style={styles.sharedInfoCard}>
               <Ionicons name="information-circle" size={24} color={color} />

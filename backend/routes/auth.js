@@ -136,4 +136,61 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Delete account
+router.delete('/account', auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    console.log('🗑️ Account deletion requested for user:', userId);
+
+    // Import models here to avoid circular dependencies
+    const Goal = require('../models/Goal');
+    const FriendRequest = require('../models/FriendRequest');
+
+    // 1. Delete all goals owned by the user
+    const deletedGoals = await Goal.deleteMany({ userId });
+    console.log(`✅ Deleted ${deletedGoals.deletedCount} goals owned by user`);
+
+    // 2. Remove user from sharedWith arrays in all goals
+    const updatedGoals = await Goal.updateMany(
+      { sharedWith: userId },
+      { $pull: { sharedWith: userId } }
+    );
+    console.log(`✅ Removed user from ${updatedGoals.modifiedCount} shared goals`);
+
+    // 3. Remove user from friends lists of other users
+    const updatedFriends = await User.updateMany(
+      { friends: userId },
+      { $pull: { friends: userId } }
+    );
+    console.log(`✅ Removed user from ${updatedFriends.modifiedCount} friends lists`);
+
+    // 4. Delete all friend requests involving the user
+    const deletedRequests = await FriendRequest.deleteMany({
+      $or: [{ from: userId }, { to: userId }]
+    });
+    console.log(`✅ Deleted ${deletedRequests.deletedCount} friend requests`);
+
+    // 5. Delete the user account
+    const deletedUser = await User.findByIdAndDelete(userId);
+    if (!deletedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`✅ Account deleted successfully: ${deletedUser.email}`);
+    
+    res.json({ 
+      message: 'Account deleted successfully',
+      deleted: {
+        goals: deletedGoals.deletedCount,
+        friendRequests: deletedRequests.deletedCount,
+        friendConnections: updatedFriends.modifiedCount,
+        sharedGoals: updatedGoals.modifiedCount
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error deleting account:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 module.exports = router;

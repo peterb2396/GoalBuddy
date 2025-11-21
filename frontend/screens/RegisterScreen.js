@@ -73,7 +73,7 @@ export default function RegisterScreen({ navigation }) {
       >
         <View style={styles.header}>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join GoalBuddy and start achieving your goals</Text>
+          <Text style={styles.subtitle}>Join Goal Circle and start achieving your goals</Text>
         </View>
 
         <View style={styles.form}>

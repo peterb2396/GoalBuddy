@@ -192,6 +192,12 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity
+            onPress={() => navigation.navigate('Settings')}
+            style={styles.iconButton}
+          >
+            <Ionicons name="settings-outline" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => navigation.navigate('Friends')}
             style={styles.iconButton}
           >

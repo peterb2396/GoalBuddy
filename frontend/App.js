@@ -13,6 +13,7 @@ import HomeScreen from './screens/HomeScreen';
 import CreateGoalScreen from './screens/CreateGoalScreen';
 import EditGoalScreen from './screens/EditGoalScreen';
 import FriendsScreen from './screens/FriendsScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import { theme } from './theme';
 
 const Stack = createStackNavigator();
@@ -45,6 +46,7 @@ const MainStack = () => {
       <Stack.Screen name="CreateGoal" component={CreateGoalScreen} />
       <Stack.Screen name="EditGoal" component={EditGoalScreen} />
       <Stack.Screen name="Friends" component={FriendsScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );
 };
